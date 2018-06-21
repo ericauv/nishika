@@ -3,12 +3,6 @@
 //Open the image file that contains the 4 Nishika Frames
 
 
-//
-
-
-
-
-
 var doc;
 var newApp = app;
 doc = newApp.documents.add(1000,1000,10,"test",NewDocumentMode.RGB);
