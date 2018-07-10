@@ -1,11 +1,7 @@
 ﻿#target photoshop
 
-//Open the image file that contains the 4 Nishika Frames
-
-//Create Selection out of first quarter of image
-
-
-//
+//Make execution accelerated
+SpeedExecution ();
 
 var doc;
 var docForOverlay;
@@ -14,29 +10,43 @@ var docForOverlay;
 var imageFile;
 imageFile = new File(File.saveDialog("Select the file that contains the 4 frame image"));
 
-//~ doc = app.documents.add("1000px","1000px",300,"test",NewDocumentMode.RGB);
+doc = app.open (imageFile);
 
- doc = app.open (imageFile);
+//User select folder for this roll of Nishika shots
+var folderPath = Folder.selectDialog ("Select the folder for this roll of Nishika") + "/";
 
-    //User select folder for this roll of Nishika shots
-    var folderPath = Folder.selectDialog ("Select the folder for this roll of Nishika") + "/";
-    alert(folderPath);
+//Export the frames to individual images and open them in a new document, save the new document
+ExportFrames(folderPath);
 
+function ExportFrames(folderPath){
+    
+    //Ask user to input the file name for this image
+    var exportName = prompt ("Input the base name of the folder/photoshop file/exported gif", "New Nishika File", "File Name");
+    
+    //Create folder for this image
+    var fileFolder;
+    fileFolder = Folder(folderPath + exportName);
+    if (!fileFolder.exists){
+        fileFolder.create();
+    };
+    
+    
+    //Create new photoshop document, name it with user's input
+    docForOverlay = app.documents.add("1000px","1000px",300,exportName,NewDocumentMode.RGB);
 
-ExportFrames(true);
-function ExportFrames(Horizontal){
-
-    docForOverlay = app.documents.add("1000px","1000px",300,"test",NewDocumentMode.RGB);
-
+    //Used to create dimensions of the slices
     var widthFrame = doc.width/4;
     var heightFrame = doc.height/4;
 
+    //Document properties
     var widthDoc = doc.width;
     var heightDoc = doc.height;
     
+    //Slice dimensions
     var newWidth;
     var newHeight;
     
+    //Slice position properties
     var left;
     var right;
     var top;
@@ -44,10 +54,13 @@ function ExportFrames(Horizontal){
     
     var shapeRef;
     
+    //Determine whether the source image is landscape or portrait (true=landscape)
+    var isHorizontal = widthDoc / heightDoc > 1
+      
     for(i=1;i<=4;i++){
         
         //Create a vertical or horizontal slice
-        switch(Horizontal){
+        switch(isHorizontal){
             
             case true:
                 left = (i-1)*widthFrame;
@@ -72,19 +85,21 @@ function ExportFrames(Horizontal){
             //Create rectangle coordinates that will be used for selection of current slice
             shapeRef = [[left,top],[left,bot],[right,bot],[right,top]];
             
-            //Export the current slice
             ExportSelection(app,doc,shapeRef,i);
+            //Export the current slice
             
             function ExportSelection(app,doc,shapeRef,i){
             //creates selection from passed coordinate array
             //saves selection as JPEG with file name 'img_0' + i
                 
+                //selection
                 var sel;
-                
+            
                 //Folder that holds the individual exported frame files
                 var imgFolder;
-                imgFolder = Folder(folderPath + "images");
+                imgFolder = Folder(fileFolder + "/images");
                 
+                //file path for the individual image slices
                  var framePath;
                 
                 app.activeDocument = doc;
@@ -94,13 +109,6 @@ function ExportFrames(Horizontal){
               
                 //store selection to sel
                 var sel = doc.selection;
-                
-//~                 //FIll Colour selection [for testing only, to be deleted]    
-//~                 var newColor = new SolidColor;
-//~                 newColor.rgb.red = i*25;
-//~                 newColor.rgb.green = i*25;
-//~                 newColor.rgb.blue = i*25;
-//~                 sel.fill(newColor);
                 
                 //Copy current selection
                 sel.copy();
@@ -114,25 +122,46 @@ function ExportFrames(Horizontal){
                 opt.includeProfile = true;
                 opt.format =SaveDocumentType.JPEG;
                 opt.quality=100;          
-                
-                //Export new document
 
                 //If this is the first slice being exported for this image, create 'images' sub-folder
                 if (i==1){
 
                     if(!imgFolder.exists) imgFolder.create();
-                    };
-
-                
+                 };
+             
                 //Store the path of the frame to be exported
                 framePath = imgFolder.fsName +"/img_0"+i+".jpg";
+                
+                //Export current frame as a jpeg
                 docNew.exportDocument (new File(imgFolder.fsName +"/img_0"+i+".jpg"), ExportType.SAVEFORWEB, opt);
                 
+                //Make the main document the one that is active (so that docNew can be closed)
                 app.activeDocument = docForOverlay;
                 
+                //Close the file that was used to save the image slice
                 docNew.close(SaveOptions.DONOTSAVECHANGES);
                 
-                var sourceFile= new File(framePath);
+                //Open the saved image slice in the docForOverlay
+                OpenInActiveDoc (framePath);
+                
+                //Delete the background layer
+                var backLayer = docForOverlay.layers.getByName("Background");                
+                if(backLayer != null){
+                        backLayer.allLocked=false;
+                        backLayer.remove;
+                    };
+            };
+        };
+    
+    //Save the photoshop file with the 4 frames as layers
+    SavePSD (File(fileFolder + "/" + exportName + ".psd"), docForOverlay);
+  };
+
+
+//Pause Program -- ask user to overlay the images
+
+function OpenInActiveDoc(openPath){
+                 var sourceFile= new File(openPath);
                 var idPlc = charIDToTypeID( "Plc " );
                 var desc3 = new ActionDescriptor();
                 var idnull = charIDToTypeID( "null" );
@@ -142,27 +171,48 @@ function ExportFrames(Horizontal){
                 var idQcsa = charIDToTypeID( "Qcsa" );
                 desc3.putEnumerated( idFTcs, idQCSt, idQcsa );
                 executeAction( idPlc, desc3, DialogModes.NO );
-                
-                var backLayer = docForOverlay.layers.getByName("Background");
-                
-                
-                if(backLayer != null){
-                        backLayer.allLocked=false;
-                        backLayer.remove;
-                    };
-            };
-        };
-  };
+};
 
+function SpeedExecution(){
+ 
+cTID = function(s) { return app.charIDToTypeID(s); };  
+sTID = function(s) { return app.stringIDToTypeID(s); };  
+  
+Stdlib = function Stdlib() {};  
+  
+Stdlib.setActionPlaybackOptions = function(opt, arg) {  
+  function _ftn() {  
+    var desc = new ActionDescriptor();  
+    var ref = new ActionReference();  
+    ref.putProperty(cTID("Prpr"), cTID("PbkO"));  
+    ref.putEnumerated(cTID("capp"), cTID("Ordn"), cTID("Trgt"));  
+    desc.putReference(cTID("null"), ref );  
+    var pdesc = new ActionDescriptor();  
+    pdesc.putEnumerated(sTID("performance"), sTID("performance"), sTID(opt));  
+    if (opt == "pause" && arg != undefined) {  
+      pdesc.putInteger(sTID("pause"), parseInt(arg));  
+    }  
+    desc.putObject(cTID("T "), cTID("PbkO"), pdesc );  
+    executeAction(cTID("setd"), desc, DialogModes.NO);  
+  }  
+  _ftn();  
+};  
+Stdlib.setPlaybackAcclerated = function() {  
+  Stdlib.setActionPlaybackOptions("accelerated");  
+};  
+Stdlib.setPlaybackStepByStep = function() {  
+  Stdlib.setActionPlaybackOptions("stepByStep");  
+};  
+Stdlib.setPlaybackPaused = function(delaySec) {  
+  Stdlib.setActionPlaybackOptions("pause", delaySec);  
+};   
+ };
 
-//Create Splices from the guides
-
-//Export each splice as a jpeg at 100 quality, ask user for folder path, store images within [path]/images
-
-//Open the 4 images in a new photoshop document
-
-//Pause Program -- ask user to overlay the images
-
-//Resume Program on user's input
-
-//
+function SavePSD(saveFile, docForSave)
+{
+  var psdFile = new File(saveFile);
+  psdSaveOptions = new PhotoshopSaveOptions();
+  psdSaveOptions.embedColorProfile = true;
+  psdSaveOptions.alphaChannels = true;  
+  activeDocument.saveAs(psdFile, psdSaveOptions, false, Extension.LOWERCASE);
+}
